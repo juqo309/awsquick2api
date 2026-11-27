@@ -42,10 +42,15 @@ type accountFile struct {
 }
 
 type AccountStore struct {
-	path   string
-	mu     sync.Mutex
-	data   accountFile
-	cursor uint64
+	path       string
+	mu         sync.Mutex
+	data       accountFile
+	cursor     uint64
+	admitCheck func(Account) (Account, error)
+}
+
+func (s *AccountStore) SetAdmitCheck(fn func(Account) (Account, error)) {
+	s.admitCheck = fn
 }
 
 func NewAccountStore(path, sessionFile, upstreamFile string) *AccountStore {
@@ -116,7 +121,6 @@ func (s *AccountStore) migrate(sessionFile, upstreamFile string) {
 	}
 	now := time.Now().Unix()
 	acc := Account{
-		ID:          newAccountID(),
 		Email:       strAny(user["email"]),
 		DisplayName: strAny(user["display_name"]),
 		Provider:    sess.Provider,
@@ -132,8 +136,7 @@ func (s *AccountStore) migrate(sessionFile, upstreamFile string) {
 	if acc.DisplayName == "" {
 		acc.DisplayName = strAny(user["user_name"])
 	}
-	s.data.Accounts = []Account{acc}
-	_ = s.persistLocked()
+	_, _, _ = s.proveThenAdmit(acc, -1)
 }
 
 func newAccountID() string {
@@ -389,7 +392,6 @@ func (s *AccountStore) ImportLogin(dir, proxy, replaceID, expectedEmail, nicknam
 	}
 	now := time.Now().Unix()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	idx := -1
 	if replaceID != "" {
 		for i := range s.data.Accounts {
@@ -399,6 +401,7 @@ func (s *AccountStore) ImportLogin(dir, proxy, replaceID, expectedEmail, nicknam
 			}
 		}
 		if idx < 0 {
+			s.mu.Unlock()
 			return Account{}, fmt.Errorf("account was removed during sign-in")
 		}
 	}
@@ -414,6 +417,7 @@ func (s *AccountStore) ImportLogin(dir, proxy, replaceID, expectedEmail, nicknam
 	if idx >= 0 {
 		previous := s.data.Accounts[idx]
 		if replaceID != "" && (previous.Provider != identity.Provider || (previous.AWSAccount != "" && previous.AWSAccount != identity.AWSAccount)) {
+			s.mu.Unlock()
 			return Account{}, fmt.Errorf("the Quick sign-in did not match the original AWS account")
 		}
 		identity.ID, identity.Label, identity.CreatedAt = previous.ID, previous.Label, previous.CreatedAt
@@ -428,28 +432,51 @@ func (s *AccountStore) ImportLogin(dir, proxy, replaceID, expectedEmail, nicknam
 			identity.Quota = previous.Quota
 		}
 		identity.UpdatedAt = now
-		s.data.Accounts[idx] = identity
-		if err := s.persistLocked(); err != nil {
-			s.data.Accounts[idx] = previous
-			return Account{}, err
+	} else {
+		identity.ID = newAccountID()
+		identity.Label = nickname
+		identity.Proxy, identity.Enabled = proxy, true
+		identity.CreatedAt, identity.UpdatedAt = now, now
+		idx = -1
+	}
+	s.mu.Unlock()
+	admitted, _, err := s.proveThenAdmit(identity, idx)
+	return admitted, err
+}
+
+// admitUsableLocked is the only place a fully credentialed, usable account
+// enters the rotation pool. idx < 0 inserts; idx >= 0 replaces that slot.
+// Caller holds s.mu. identity must already carry session + upstream secrets.
+func (s *AccountStore) admitUsableLocked(identity Account, idx int) (Account, bool, error) {
+	if err := identity.Session.validate(); err != nil {
+		return Account{}, false, err
+	}
+	created := idx < 0
+	var previous Account
+	if created {
+		if identity.ID == "" {
+			identity.ID = newAccountID()
 		}
-		return identity, nil
+		s.data.Accounts = append(s.data.Accounts, identity)
+		idx = len(s.data.Accounts) - 1
+	} else {
+		previous = s.data.Accounts[idx]
+		s.data.Accounts[idx] = identity
 	}
-	identity.ID, identity.Label = newAccountID(), nickname
-	identity.Proxy, identity.Enabled = proxy, true
-	identity.CreatedAt, identity.UpdatedAt = now, now
-	s.data.Accounts = append(s.data.Accounts, identity)
 	if err := s.persistLocked(); err != nil {
-		s.data.Accounts = s.data.Accounts[:len(s.data.Accounts)-1]
-		return Account{}, err
+		if created {
+			s.data.Accounts = s.data.Accounts[:len(s.data.Accounts)-1]
+		} else {
+			s.data.Accounts[idx] = previous
+		}
+		return Account{}, false, err
 	}
-	return identity, nil
+	return identity, created, nil
 }
 
 func (s *AccountStore) UpsertImported(identity Account) (Account, bool, error) {
 	now := time.Now().Unix()
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	idx := -1
 	if identity.Email != "" {
 		for i := range s.data.Accounts {
@@ -476,21 +503,14 @@ func (s *AccountStore) UpsertImported(identity Account) (Account, bool, error) {
 			identity.Quota = previous.Quota
 		}
 		identity.UpdatedAt = now
-		s.data.Accounts[idx] = identity
-		if err := s.persistLocked(); err != nil {
-			s.data.Accounts[idx] = previous
-			return Account{}, false, err
+	} else {
+		if identity.ID == "" {
+			identity.ID = newAccountID()
 		}
-		return identity, false, nil
+		identity.CreatedAt, identity.UpdatedAt = now, now
 	}
-	identity.ID = newAccountID()
-	identity.CreatedAt, identity.UpdatedAt = now, now
-	s.data.Accounts = append(s.data.Accounts, identity)
-	if err := s.persistLocked(); err != nil {
-		s.data.Accounts = s.data.Accounts[:len(s.data.Accounts)-1]
-		return Account{}, false, err
-	}
-	return identity, true, nil
+	s.mu.Unlock()
+	return s.proveThenAdmit(identity, idx)
 }
 
 func (s *AccountStore) UpdateRefreshed(previous, fresh Account) error {

@@ -92,10 +92,17 @@ func NewServer(cfg *Config) *Server {
 	if accPath == "" {
 		accPath = "data/accounts.json"
 	}
+	accounts := NewAccountStore(accPath, "", "")
+	if cfg != nil && cfg.SessionProof {
+		accounts.SetAdmitCheck(pythonSessionProof(cfg))
+	}
+	if cfg != nil && len(accounts.Snapshot()) == 0 && (cfg.SessionFile != "" || cfg.UpstreamFile != "") {
+		accounts.migrate(cfg.SessionFile, cfg.UpstreamFile)
+	}
 	return &Server{
 		cfg:      cfg,
 		sessions: NewSessionSource(cfg),
-		accounts: NewAccountStore(accPath, cfg.SessionFile, cfg.UpstreamFile),
+		accounts: accounts,
 		tokens:   NewTokenStore(cfg.TokensFile),
 		panel:    NewPanelAuth(cfg.PanelAuthFile),
 		settings: newSettingsStore(filepath.Join(filepath.Dir(accPath), "settings.json"), cfg),

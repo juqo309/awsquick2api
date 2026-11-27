@@ -18,7 +18,8 @@ This is an unofficial project, unaffiliated with Amazon / AWS. Use accounts you 
 - **Files.** JPEG, PNG, GIF, WebP, and PDF go through as Quick attachments. Small ones inline, large ones through Quick's own upload path.
 - **Usage that is not made up.** Calls, time, tokens, cache reads, USD, ACP credits, monthly minutes. Synced from the official sources, not guessed from your prompt length.
 - **Login without the desktop app.** Native OAuth / PKCE. No outpost process. No Electron. Paste the localhost callback if you are on a remote box.
-- **One binary.** Go proxy plus a small Python login helper. `make build` and you are running.
+- **Accounts are proven before they join the pool.** Every login and every import runs through `quickwork-session`: same proxy the account will chat through, live `user-info` against Amazon, refresh if the access token is already dead. Pretty JSON that cannot actually reach Quick never gets rotated in.
+- **One binary.** Go proxy plus Python for login and session proof. `make build` and you are running.
 
 ## Features
 
@@ -39,7 +40,7 @@ Models are the Quick modes you already know: `smart`, `fast`, `balanced`, `auto`
 ## Requirements
 
 - Go 1.26+
-- Python 3 (login helper only)
+- Python 3, with `quickwork-session` on `PYTHONPATH` or installed (`pip install quickwork-session`)
 - A browser
 - An Amazon Quick account that can sign in normally
 
@@ -135,6 +136,20 @@ The UI rides the same port as the API.
 
 Create keys in the UI, then send them as `Authorization: Bearer …` or `x-api-key`. The dashboard password cannot call the inference API, and an inference key cannot open the dashboard.
 
+## Session proof
+
+JSON is not a live Quick account. Before an account is written to the pool (OAuth login, dashboard import, or `POST /v1/accounts/upload`) the proxy hands the **full account record plus that account's proxy** to [`quickwork-session`](https://pypi.org/project/quickwork-session/). The library calls Amazon `user-info` through that proxy, refreshes if the access token is already expired, and returns the proven session. Failures never enter rotation.
+
+Install it next to the login helper:
+
+```bash
+pip install quickwork-session
+# SOCKS5 accounts:
+pip install 'quickwork-session[socks]'
+```
+
+From this workspace the Go process also sees `../pypi/src` on `PYTHONPATH`. `QW_SESSION_PROOF=0` turns the check off. Do not do that on a host that accepts imported bundles.
+
 ## Docker
 
 ```bash
@@ -164,6 +179,7 @@ docker compose exec quickproxy python3 /app/auth/quickauth.py upstream-login --p
 | `-timeout` | `5m` | Per-request upstream timeout |
 | `-keep-sessions` | off | Keep Quick threads around instead of deleting them |
 | `-full-context` | off | Send Quick's own memory/knowledge prompt instead of the lean API persona |
+| `-session-proof` | on | Call `quickwork-session` with the full account (creds + proxy) before pooling. `QW_SESSION_PROOF=0` disables it. |
 
 `QW_PROXY_ADDR`, `QW_TOKENS_FILE`, `QW_ACCOUNTS_FILE`, and friends override the same values. Runtime files land in `data/` and are gitignored. Do not commit them.
 

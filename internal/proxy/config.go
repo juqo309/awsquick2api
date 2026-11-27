@@ -28,4 +28,5 @@ type Config struct {
 	Locale            string
 	ThinkingEffort    string
 	KeepSessions      bool
+	SessionProof      bool
 }

@@ -56,6 +56,7 @@ func main() {
 	panelAuthFile := flag.String("panel-auth", env("QW_PANEL_AUTH_FILE", "data/panel_auth.json"), "dashboard password file (missing leaves the dashboard open)")
 	setPanelPassword := flag.Bool("set-panel-password", false, "read a new dashboard password from stdin, write it to -panel-auth, and exit")
 	keepSessions := flag.Bool("keep-sessions", false, "keep upstream chat sessions instead of deleting them after each request")
+	sessionProof := flag.Bool("session-proof", env("QW_SESSION_PROOF", "1") != "0", "prove the Quick session via quickwork-session before pooling an account")
 	flag.Parse()
 
 	if *setPanelPassword {
@@ -116,6 +117,7 @@ func main() {
 		ThinkingEffort:    *thinking,
 		KeepSessions:      *keepSessions,
 		FullContext:       *fullContext,
+		SessionProof:      *sessionProof,
 	}
 
 	app := proxy.NewServer(cfg)

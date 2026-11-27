@@ -7,8 +7,9 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/quickproxy ./cmd/q
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip3 install --break-system-packages --no-cache-dir 'quickwork-session' || true
 WORKDIR /app
 COPY --from=build /out/quickproxy /app/quickproxy
 COPY auth/quickauth.py /app/auth/quickauth.py
