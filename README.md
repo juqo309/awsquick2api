@@ -139,20 +139,6 @@ The UI rides the same port as the API.
 
 Create keys in the UI, then send them as `Authorization: Bearer …` or `x-api-key`. The dashboard password cannot call the inference API, and an inference key cannot open the dashboard.
 
-## Session proof
-
-JSON is not a live Quick account. Before an account is written to the pool (OAuth login, dashboard import, or `POST /v1/accounts/upload`) the proxy hands the **full account record plus that account's proxy** to [`quickwork-session`](https://pypi.org/project/quickwork-session/). The library calls Amazon `user-info` through that proxy, refreshes if the access token is already expired, and returns the proven session. Failures never enter rotation.
-
-Install it next to the login helper:
-
-```bash
-pip install quickwork-session
-# SOCKS5 accounts:
-pip install 'quickwork-session[socks]'
-```
-
-From this workspace the Go process also sees `../pypi/src` on `PYTHONPATH`. `QW_SESSION_PROOF=0` turns the check off. Do not do that on a host that accepts imported bundles.
-
 ## Docker
 
 ```bash
