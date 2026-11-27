@@ -47,7 +47,10 @@ Models are the Quick modes you already know: `smart`, `fast`, `balanced`, `auto`
 ## Quick start
 
 ```bash
+git clone https://github.com/juqo309/awsquick2api.git
+cd awsquick2api
 make build
+pip install quickwork-session
 ```
 
 ### 1. Sign in
