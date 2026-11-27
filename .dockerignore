@@ -1,0 +1,9 @@
+.git
+.gitignore
+data
+bin
+**/.DS_Store
+**/*.pyc
+**/__pycache__
+README.md
+LICENSE

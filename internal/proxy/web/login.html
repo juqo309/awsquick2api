@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#242119">
+  <meta name="robots" content="noindex">
+  <title>Sign in · AWS Quick</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="/quick.png">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="login-brand">
+      <img src="/quick.png" width="32" height="32" alt="">
+      <span>AWS Quick</span>
+    </div>
+    <h1>Sign in to the dashboard</h1>
+    <form id="login-form" novalidate>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+      <p id="login-error" class="login-error" role="alert" hidden></p>
+      <button class="btn primary" type="submit">Sign in</button>
+    </form>
+  </main>
+  <script>
+    const form = document.getElementById("login-form");
+    const input = document.getElementById("password");
+    const error = document.getElementById("login-error");
+    const submit = form.querySelector("button");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!input.value) { input.focus(); return; }
+      submit.disabled = true;
+      error.hidden = true;
+      try {
+        const res = await fetch("/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: input.value }),
+          credentials: "same-origin",
+        });
+        if (res.ok) { location.replace("/"); return; }
+        let message = "Sign-in failed.";
+        try { message = (await res.json()).error || message; } catch {}
+        error.textContent = message;
+        error.hidden = false;
+        input.select();
+      } catch {
+        error.textContent = "Could not reach the server.";
+        error.hidden = false;
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

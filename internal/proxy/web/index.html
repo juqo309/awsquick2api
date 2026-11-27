@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#242119">
+  <title>AWS Quick</title>
+  <link rel="icon" type="image/png" sizes="64x64" href="/quick.png">
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#chat" aria-label="AWS Quick home">
+        <img class="brand-mark" src="/quick.png" width="35" height="35" alt="">
+        <span>AWS Quick</span>
+      </a>
+      <nav class="nav" aria-label="Workspace" id="nav"></nav>
+      <div class="sidebar-footer" id="sidebar-footer"></div>
+    </aside>
+    <main class="desk">
+      <header class="topbar">
+        <h1 id="page-title" tabindex="-1">Chat</h1>
+        <div class="top-actions" id="top-actions"></div>
+      </header>
+      <section id="view" class="view" aria-labelledby="page-title"><p class="loading" role="status">Loading…</p></section>
+    </main>
+  </div>
+  <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+  <dialog id="agent-dialog" class="wide-dialog" aria-labelledby="agent-dialog-title"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

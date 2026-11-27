@@ -1,6 +1,9 @@
+bin/
+data/
 .DS_Store
+.idea/
+.vscode/
 .venv/
 __pycache__/
 *.pyc
-.idea/
-.vscode/
+*.exe
